@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FocusFlow 🍅 — Pomodoro Timer & Task Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍅</text></svg>">
+<style>
+  /* ============================================================
+     FocusFlow — glassmorphism pomodoro
+     ============================================================ */
+  :root {
+    --bg-1: #141a33;
+    --bg-2: #0d1022;
+    --card: rgba(255, 255, 255, 0.055);
+    --card-strong: rgba(255, 255, 255, 0.09);
+    --border: rgba(255, 255, 255, 0.12);
+    --text: #eef1fb;
+    --dim: #9aa3c7;
+    --focus-1: #a78bfa;
+    --focus-2: #f472b6;
+    --break-1: #34d3c0;
+    --break-2: #38bdf8;
+    --long-1: #fbbf24;
+    --long-2: #fb7185;
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  body.light {
+    --bg-1: #eef1fb;
+    --bg-2: #dfe4f7;
+    --card: rgba(255, 255, 255, 0.65);
+    --card-strong: rgba(255, 255, 255, 0.85);
+    --border: rgba(30, 41, 99, 0.14);
+    --text: #1c2340;
+    --dim: #5b6488;
+    --shadow: 0 24px 50px rgba(46, 58, 110, 0.18);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, Tahoma, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    background:
+      radial-gradient(700px 420px at 12% 0%, rgba(167, 139, 250, 0.22), transparent 60%),
+      radial-gradient(700px 420px at 88% 100%, rgba(56, 189, 248, 0.16), transparent 60%),
+      linear-gradient(160deg, var(--bg-1), var(--bg-2));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: background .3s, color .3s;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    width: min(1060px, 94vw);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 26px 6px 18px;
+  }
+  .logo { font-size: 26px; font-weight: 800; letter-spacing: .5px; }
+  .logo span {
+    background: linear-gradient(90deg, var(--focus-1), var(--focus-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .header-actions { display: flex; gap: 8px; }
+  .ghost-btn {
+    background: var(--card); border: 1px solid var(--border); color: var(--text);
+    border-radius: 12px; padding: 9px 14px; cursor: pointer; font-size: 15px;
+    transition: background .15s, transform .12s;
+  }
+  .ghost-btn:hover { background: var(--card-strong); transform: translateY(-1px); }
+
+  /* ---------- layout ---------- */
+  .layout {
+    width: min(1060px, 94vw);
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 22px;
+    padding-bottom: 40px;
+    align-items: start;
+  }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 26px;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: var(--shadow);
+    padding: 30px;
+  }
+
+  /* ---------- mode tabs ---------- */
+  .modes { display: flex; gap: 8px; justify-content: center; margin-bottom: 26px; }
+  .modes button {
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    color: var(--dim); background: transparent; border: 0;
+    padding: 9px 18px; border-radius: 999px; cursor: pointer;
+    transition: all .18s;
+  }
+  .modes button.active { color: #fff; background: var(--mode-grad); box-shadow: 0 6px 20px -6px var(--mode-color); }
+  body[data-mode="short"]  { --mode-grad: linear-gradient(90deg, var(--break-1), var(--break-2)); --mode-color: var(--break-1); }
+  body[data-mode="focus"]  { --mode-grad: linear-gradient(90deg, var(--focus-1), var(--focus-2)); --mode-color: var(--focus-1); }
+  body[data-mode="long"]   { --mode-grad: linear-gradient(90deg, var(--long-1), var(--long-2)); --mode-color: var(--long-1); }
+
+  /* ---------- ring ---------- */
+  .ring-wrap { display: flex; justify-content: center; margin: 8px 0 26px; }
+  .ring-box { position: relative; width: 272px; height: 272px; }
+  .ring-box svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: var(--border); stroke-width: 13; }
+  .ring-progress {
+    fill: none; stroke: url(#ringGradient); stroke-width: 13;
+    stroke-linecap: round;
+    transition: stroke-dashoffset .35s linear;
+    filter: drop-shadow(0 0 10px var(--mode-color));
+  }
+  .ring-center {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+  }
+  .time {
+    font-size: 60px; font-weight: 800; letter-spacing: 1px;
+    font-variant-numeric: tabular-nums;
+  }
+  .mode-label { color: var(--dim); letter-spacing: 3px; font-size: 12px; text-transform: uppercase; margin-top: 2px; }
+  .session-dots { margin-top: 10px; display: flex; gap: 6px; }
+  .session-dots i {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--border);
+  }
+  .session-dots i.on { background: var(--focus-1); box-shadow: 0 0 8px var(--focus-1); }
+
+  /* ---------- controls ---------- */
+  .controls { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .primary-btn {
+    font-family: inherit; font-size: 16px; font-weight: 700; color: #fff;
+    border: 0; border-radius: 14px; padding: 14px 44px; cursor: pointer;
+    background: var(--mode-grad);
+    box-shadow: 0 10px 28px -8px var(--mode-color);
+    transition: transform .12s, box-shadow .18s;
+    min-width: 150px;
+  }
+  .primary-btn:hover { transform: translateY(-2px); }
+
+  /* ---------- stats ---------- */
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 12px 8px; text-align: center;
+  }
+  .stat b { font-size: 20px; display: block; }
+  .stat small { color: var(--dim); font-size: 11px; letter-spacing: .8px; text-transform: uppercase; }
+
+  /* ---------- tasks ---------- */
+  .task-form { display: flex; gap: 8px; margin-bottom: 16px; }
+  .task-form input[type="text"] {
+    flex: 1; font-family: inherit; font-size: 14px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    color: var(--text); padding: 11px 14px; outline: none; min-width: 0;
+  }
+  .task-form input[type="text"]:focus { border-color: var(--focus-1); }
+  .task-form input[type="number"] {
+    width: 68px; font-family: inherit; background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px; color: var(--text);
+    padding: 11px 8px; outline: none; text-align: center;
+  }
+  .task-list { list-style: none; display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+  .task {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 11px 13px; cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .task.current { border-color: var(--focus-1); background: var(--card-strong); }
+  .task input[type="checkbox"] { accent-color: var(--focus-1); width: 16px; height: 16px; cursor: pointer; }
+  .task .t-text { flex: 1; font-size: 14.5px; }
+  .task.done .t-text { text-decoration: line-through; color: var(--dim); }
+  .task .t-est { font-size: 12.5px; color: var(--dim); white-space: nowrap; }
+  .task .t-est.full { color: var(--break-1); font-weight: 700; }
+  .task .t-del {
+    border: 0; background: transparent; color: var(--dim); cursor: pointer;
+    font-size: 15px; padding: 2px 6px; border-radius: 8px;
+  }
+  .task .t-del:hover { color: #fb7185; background: rgba(251, 113, 133, .12); }
+  .empty-note { color: var(--dim); font-size: 13.5px; text-align: center; padding: 22px 0; }
+
+  /* ---------- settings modal ---------- */
+  .modal-bg {
+    position: fixed; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(5, 8, 18, 0.6); backdrop-filter: blur(6px); z-index: 20;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    width: min(420px, 92vw); background: var(--bg-1);
+    border: 1px solid var(--border); border-radius: 22px; padding: 28px;
+    box-shadow: var(--shadow);
+  }
+  .modal h3 { margin-bottom: 18px; font-size: 19px; }
+  .setting-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .setting-row:last-of-type { border-bottom: 0; }
+  .setting-row label { font-size: 14.5px; }
+  .setting-row input[type="number"] {
+    width: 76px; font-family: inherit; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; color: var(--text);
+    padding: 8px; text-align: center; outline: none;
+  }
+  .switch { position: relative; width: 44px; height: 24px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .track {
+    position: absolute; inset: 0; border-radius: 999px;
+    background: var(--border); cursor: pointer; transition: .2s;
+  }
+  .switch .track::after {
+    content: ""; position: absolute; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; top: 3px; left: 3px; transition: .2s;
+  }
+  .switch input:checked + .track { background: var(--focus-1); }
+  .switch input:checked + .track::after { transform: translateX(20px); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+  .danger-btn { color: #fb7185 !important; }
+
+  footer { padding: 18px; color: var(--dim); font-size: 12px; }
+
+  /* pulse when running */
+  @keyframes pulse { 50% { opacity: .55; } }
+  body.running .time { animation: pulse 2.4s ease-in-out infinite; }
+</style>
+</head>
+<body data-mode="focus">
+
+<header>
+  <div class="logo">🍅 Focus<span>Flow</span></div>
+  <div class="header-actions">
+    <button class="ghost-btn" id="notify-btn" title="enable notifications">🔔</button>
+    <button class="ghost-btn" id="theme-btn" title="toggle theme">☀️</button>
+    <button class="ghost-btn" id="settings-btn" title="settings">⚙️</button>
+  </div>
+</header>
+
+<div class="layout">
+  <!-- ===================== timer card ===================== -->
+  <section class="card">
+    <div class="modes">
+      <button data-mode="focus" class="active">🎯 Focus</button>
+      <button data-mode="short">☕ Short break</button>
+      <button data-mode="long">🌴 Long break</button>
+    </div>
+
+    <div class="ring-wrap">
+      <div class="ring-box">
+        <svg width="272" height="272" viewBox="0 0 272 272">
+          <defs>
+            <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%"  stop-color="var(--mode-color, #a78bfa)"/>
+              <stop offset="100%" stop-color="var(--focus-2, #f472b6)"/>
+            </linearGradient>
+          </defs>
+          <circle class="ring-bg" cx="136" cy="136" r="118"/>
+          <circle class="ring-progress" id="ring" cx="136" cy="136" r="118"/>
+        </svg>
+        <div class="ring-center">
+          <div class="time" id="time">25:00</div>
+          <div class="mode-label" id="mode-label">focus session</div>
+          <div class="session-dots" id="dots"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="ghost-btn" id="reset-btn" title="reset (R)">↺ reset</button>
+      <button class="primary-btn" id="start-btn">▶ start</button>
+      <button class="ghost-btn" id="skip-btn" title="skip (S)">⏭ skip</button>
+    </div>
+  </section>
+
+  <!-- ===================== tasks + stats card ===================== -->
+  <section class="card">
+    <div class="stats-row">
+      <div class="stat"><b id="s-today">0</b><small>🍅 today</small></div>
+      <div class="stat"><b id="s-minutes">0</b><small>min focus</small></div>
+      <div class="stat"><b id="s-streak">0</b><small>day streak</small></div>
+      <div class="stat"><b id="s-total">0</b><small>total 🍅</small></div>
+    </div>
+
+    <form class="task-form" id="task-form">
+      <input type="text" id="task-input" placeholder="What are you working on?" autocomplete="off" maxlength="90">
+      <input type="number" id="task-est" min="1" max="12" value="1" title="estimated pomodoros">
+      <button class="ghost-btn" type="submit" style="font-weight:700">＋ add</button>
+    </form>
+
+    <ul class="task-list" id="task-list"></ul>
+    <div class="empty-note" id="empty-note">no tasks yet — add one above 🌱</div>
+  </section>
+</div>
+
+<!-- ===================== settings modal ===================== -->
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h3>⚙️ Settings</h3>
+    <div class="setting-row">
+      <label>Focus length (min)</label>
+      <input type="number" id="set-focus" min="1" max="90">
+    </div>
+    <div class="setting-row">
+      <label>Short break (min)</label>
+      <input type="number" id="set-short" min="1" max="30">
+    </div>
+    <div class="setting-row">
+      <label>Long break (min)</label>
+      <input type="number" id="set-long" min="1" max="45">
+    </div>
+    <div class="setting-row">
+      <label>Auto-start next session</label>
+      <label class="switch"><input type="checkbox" id="set-auto"><span class="track"></span></label>
+    </div>
+    <div class="setting-row">
+      <label>Sound</label>
+      <label class="switch"><input type="checkbox" id="set-sound"><span class="track"></span></label>
+    </div>
+    <div class="modal-actions">
+      <button class="ghost-btn danger-btn" id="reset-stats-btn">reset stats</button>
+      <button class="ghost-btn" id="close-settings-btn" style="border:0;background:var(--mode-grad);color:#fff;font-weight:700">done</button>
+    </div>
+  </div>
+</div>
+
+<footer>vanilla HTML · CSS · JS — your data stays in your browser (localStorage) · MIT</footer>
+
+<script>
+/* ============================================================
+   FocusFlow — pomodoro engine + task tracker
+   ============================================================ */
+(function () {
+  'use strict';
+
+  // ---------- persistence -------------------------------------------------
+  var LS_SETTINGS = 'focusflow:settings';
+  var LS_TASKS = 'focusflow:tasks';
+  var LS_STATS = 'focusflow:stats';
+
+  function load(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key)) || fallback; }
+    catch (e) { return fallback; }
+  }
+  function save(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+
+  var settings = Object.assign(
+    { focus: 25, short: 5, long: 15, autoStart: true, sound: true, theme: 'dark' },
+    load(LS_SETTINGS, {})
+  );
+  var tasks = load(LS_TASKS, []);
+  var stats = load(LS_STATS, { date: today(), sessions: 0, minutes: 0, streak: 0, totalSessions: 0 });
+  var currentTaskId = null;
+
+  // ---------- state --------------------------------------------------------
+  var mode = 'focus';            // focus | short | long
+  var running = false;
+  var remaining = settings.focus * 60;
+  var total = settings.focus * 60;
+  var endAt = null;
+  var tickId = null;
+  var completedFocus = 0;        // completed focus sessions in the current cycle
+
+  var MODE_LABELS = { focus: 'focus session', short: 'short break', long: 'long break' };
+
+  // ---------- dom ------------------------------------------------------------
+  var $ = function (id) { return document.getElementById(id); };
+  var timeEl = $('time'), ringEl = $('ring'), startBtn = $('start-btn');
+  var RING_C = 2 * Math.PI * 118;
+  ringEl.style.strokeDasharray = RING_C;
+
+  // ---------- utilities -------------------------------------------------------
+  function today(offsetDays) {
+    var d = new Date();
+    if (offsetDays) d.setDate(d.getDate() + offsetDays);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function fmt(sec) {
+    sec = Math.max(0, Math.round(sec));
+    var m = Math.floor(sec / 60), s = sec % 60;
+    return (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+  }
+
+  function chime() {
+    if (!settings.sound) return;
+    try {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      var ctx = new Ctx();
+      [880, 660, 990].forEach(function (freq, i) {
+        var osc = ctx.createOscillator();
+        var gain = ctx.createGain();
+        var t = ctx.currentTime + i * 0.18;
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.35, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(t); osc.stop(t + 0.6);
+      });
+    } catch (e) { /* audio unavailable — no big deal */ }
+  }
+
+  function notify(title, body) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try { new Notification(title, { body: body }); } catch (e) {}
+    }
+  }
+
+  // ---------- stats ---------------------------------------------------------
+  function rollStats(focusMinutes) {
+    var t = today();
+    if (stats.date !== t) {
+      stats.streak = (stats.date === today(-1)) ? (stats.streak || 0) + 1 : 1;
+      stats.date = t;
+      stats.sessions = 0;
+      stats.minutes = 0;
+    }
+    stats.sessions = (stats.sessions || 0) + 1;
+    stats.minutes = (stats.minutes || 0) + focusMinutes;
+    stats.totalSessions = (stats.totalSessions || 0) + 1;
+    save(LS_STATS, stats);
+    renderStats();
+  }
+
+  function renderStats() {
+    var t = today();
+    var showToday = stats.date === t;
+    $('s-today').textContent = showToday ? stats.sessions : 0;
+    $('s-minutes').textContent = showToday ? stats.minutes : 0;
+    $('s-total').textContent = stats.totalSessions || 0;
+    var active = (stats.date === t || stats.date === today(-1)) ? (stats.streak || 0) : 0;
+    $('s-streak').textContent = active;
+  }
+
+  // ---------- tasks -----------------------------------------------------------
+  function renderTasks() {
+    var list = $('task-list');
+    list.innerHTML = '';
+    $('empty-note').style.display = tasks.length ? 'none' : 'block';
+
+    tasks.forEach(function (task) {
+      var li = document.createElement('li');
+      li.className = 'task' + (task.done ? ' done' : '') + (task.id === currentTaskId ? ' current' : '');
+
+      var cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = task.done;
+      cb.addEventListener('click', function (e) { e.stopPropagation(); });
+      cb.addEventListener('change', function () {
+        task.done = cb.checked;
+        if (task.done && task.id === currentTaskId) currentTaskId = null;
+        save(LS_TASKS, tasks);
+        renderTasks();
+      });
+
+      var text = document.createElement('div');
+      text.className = 't-text';
+      text.textContent = task.text;
+
+      var est = document.createElement('div');
+      est.className = 't-est' + (task.spent >= task.est ? ' full' : '');
+      est.textContent = '🍅 ' + task.spent + '/' + task.est;
+
+      var del = document.createElement('button');
+      del.className = 't-del';
+      del.textContent = '✕';
+      del.title = 'delete';
+      del.addEventListener('click', function (e) {
+        e.stopPropagation();
+        tasks = tasks.filter(function (t) { return t.id !== task.id; });
+        if (currentTaskId === task.id) currentTaskId = null;
+        save(LS_TASKS, tasks);
+        renderTasks();
+      });
+
+      li.append(cb, text, est, del);
+      li.addEventListener('click', function () {
+        if (task.done) return;
+        currentTaskId = (currentTaskId === task.id) ? null : task.id;
+        renderTasks();
+      });
+      list.appendChild(li);
+    });
+  }
+
+  $('task-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var input = $('task-input');
+    var text = input.value.trim();
+    if (!text) return;
+    var est = Math.max(1, Math.min(12, parseInt($('task-est').value, 10) || 1));
+    tasks.push({ id: Date.now(), text: text, est: est, spent: 0, done: false });
+    input.value = '';
+    save(LS_TASKS, tasks);
+    renderTasks();
+  });
+
+  // ---------- timer ------------------------------------------------------------
+  function renderTime() {
+    timeEl.textContent = fmt(remaining);
+    var progress = total > 0 ? 1 - remaining / total : 0;
+    ringEl.style.strokeDashoffset = RING_C * (1 - progress);
+    document.title = (running ? '' : '⏸ ') + fmt(remaining) + ' · ' + MODE_LABELS[mode] + ' — FocusFlow 🍅';
+  }
+
+  function renderMode() {
+    document.body.dataset.mode = mode;
+    document.querySelectorAll('.modes button').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.mode === mode);
+    });
+    $('mode-label').textContent = MODE_LABELS[mode];
+    renderDots();
+  }
+
+  function renderDots() {
+    var dots = $('dots');
+    dots.innerHTML = '';
+    for (var i = 0; i < 4; i++) {
+      var dot = document.createElement('i');
+      if (i < (completedFocus % 4 === 0 && completedFocus > 0 ? 4 : completedFocus % 4)) dot.className = 'on';
+      dots.appendChild(dot);
+    }
+  }
+
+  function tick() {
+    remaining = Math.max(0, (endAt - Date.now()) / 1000);
+    renderTime();
+    if (remaining <= 0) complete(true);
+  }
+
+  function start() {
+    if (running) return;
+    if (remaining <= 0) remaining = settings[mode] * 60;
+    running = true;
+    endAt = Date.now() + remaining * 1000;
+    tickId = setInterval(tick, 250);
+    startBtn.textContent = '⏸ pause';
+    document.body.classList.add('running');
+    renderTime();
+  }
+
+  function pause() {
+    if (!running) return;
+    running = false;
+    clearInterval(tickId);
+    startBtn.textContent = '▶ resume';
+    document.body.classList.remove('running');
+    renderTime();
+  }
+
+  function resetTimer() {
+    pause();
+    remaining = total = settings[mode] * 60;
+    renderTime();
+  }
+
+  function setMode(next, autoStart) {
+    pause();
+    mode = next;
+    remaining = total = settings[mode] * 60;
+    renderMode();
+    renderTime();
+    if (autoStart && settings.autoStart) start();
+  }
+
+  function complete(countIt) {
+    pause();
+    chime();
+
+    if (countIt && mode === 'focus') {
+      completedFocus++;
+      rollStats(settings.focus);
+      var task = tasks.find(function (t) { return t.id === currentTaskId && !t.done; });
+      if (task) {
+        task.spent++;
+        save(LS_TASKS, tasks);
+        renderTasks();
+      }
+      notify('🍅 Focus session complete!', 'Time for a ' + (completedFocus % 4 === 0 ? 'long' : 'short') + ' break.');
+      setMode(completedFocus % 4 === 0 ? 'long' : 'short', true);
+    } else if (countIt) {
+      notify('☕ Break over', 'Back to focus — you got this.');
+      setMode('focus', true);
+    } else {
+      // skipped: move on without credit
+      setMode(mode === 'focus' ? (completedFocus % 3 === 2 ? 'long' : 'short') : 'focus', false);
+    }
+  }
+
+  // ---------- controls -----------------------------------------------------------
+  startBtn.addEventListener('click', function () { running ? pause() : start(); });
+  $('reset-btn').addEventListener('click', resetTimer);
+  $('skip-btn').addEventListener('click', function () { complete(false); });
+
+  document.querySelectorAll('.modes button').forEach(function (btn) {
+    btn.addEventListener('click', function () { setMode(btn.dataset.mode, false); });
+  });
+
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea') return;
+    if (e.code === 'Space') { e.preventDefault(); running ? pause() : start(); }
+    else if (e.key === 'r' || e.key === 'R') resetTimer();
+    else if (e.key === 's' || e.key === 'S') complete(false);
+  });
+
+  // ---------- theme ------------------------------------------------------------
+  function applyTheme() {
+    document.body.classList.toggle('light', settings.theme === 'light');
+    $('theme-btn').textContent = settings.theme === 'light' ? '🌙' : '☀️';
+  }
+  $('theme-btn').addEventListener('click', function () {
+    settings.theme = settings.theme === 'light' ? 'dark' : 'light';
+    save(LS_SETTINGS, settings);
+    applyTheme();
+  });
+
+  // ---------- notifications ---------------------------------------------------
+  $('notify-btn').addEventListener('click', function () {
+    if (!('Notification' in window)) { alert('Notifications are not supported in this browser.'); return; }
+    Notification.requestPermission().then(function (p) {
+      $('notify-btn').textContent = p === 'granted' ? '🔔' : '🔕';
+      if (p === 'granted') notify('🍅 FocusFlow', 'Notifications enabled — happy focusing!');
+    });
+  });
+  if ('Notification' in window) {
+    $('notify-btn').textContent = Notification.permission === 'granted' ? '🔔' : '🔕';
+  }
+
+  // ---------- settings modal ----------------------------------------------------
+  function openSettings() {
+    $('set-focus').value = settings.focus;
+    $('set-short').value = settings.short;
+    $('set-long').value = settings.long;
+    $('set-auto').checked = settings.autoStart;
+    $('set-sound').checked = settings.sound;
+    $('modal-bg').classList.add('show');
+  }
+  $('settings-btn').addEventListener('click', openSettings);
+  $('close-settings-btn').addEventListener('click', function () {
+    settings.focus = clampMin($('set-focus').value, 25);
+    settings.short = clampMin($('set-short').value, 5);
+    settings.long = clampMin($('set-long').value, 15);
+    settings.autoStart = $('set-auto').checked;
+    settings.sound = $('set-sound').checked;
+    save(LS_SETTINGS, settings);
+    $('modal-bg').classList.remove('show');
+    if (!running) resetTimer(); // apply new duration to the current mode
+  });
+  $('modal-bg').addEventListener('click', function (e) {
+    if (e.target === this) $('close-settings-btn').click();
+  });
+  $('reset-stats-btn').addEventListener('click', function () {
+    if (confirm('Reset all stats (today, streak, total)?')) {
+      stats = { date: today(), sessions: 0, minutes: 0, streak: 0, totalSessions: 0 };
+      save(LS_STATS, stats);
+      completedFocus = 0;
+      renderStats();
+      renderDots();
+    }
+  });
+
+  function clampMin(value, fallback) {
+    var n = parseInt(value, 10);
+    if (isNaN(n) || n < 1) n = fallback;
+    return Math.min(90, n);
+  }
+
+  // ---------- boot ------------------------------------------------------------
+  applyTheme();
+  renderStats();
+  renderTasks();
+  renderMode();
+  resetTimer();
+})();
+</script>
+</body>
+</html>
