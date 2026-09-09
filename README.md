@@ -51,8 +51,10 @@ open index.html        # or just double-click it — no server, no build
 
 - **Drift-free timer** — remaining time is derived from `Date.now()` timestamps every 250 ms, so the clock never accumulates error even if the tab throttles
 - **State machine** — `focus → short → focus … → long` with a 4-session cycle counter; skipping never grants credit
+- **Mode theming via CSS custom properties** — `body[data-mode]` swaps the accent color, and the SVG ring reads it through `stroke: var(--mode-color)`
 - **Streak logic** — the streak rolls over at midnight only when the previous active day was yesterday
 - Everything persists to `localStorage` (settings, tasks, stats) — no accounts, no network calls, no tracking
+- Fonts load from Google Fonts (Fraunces & Inter) when online, with system-serif/sans fallbacks offline
 
 ## 📄 License
 
