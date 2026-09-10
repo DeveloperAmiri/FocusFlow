@@ -9,7 +9,12 @@ Glassmorphism UI · zero dependencies · your data never leaves your browser.
 ![HTML](https://img.shields.io/badge/HTML5-%20100%25-E34F26?logo=html5&logoColor=white)
 ![JS](https://img.shields.io/badge/JavaScript-vanilla-F7DF1E?logo=javascript&logoColor=black)
 ![License](https://img.shields.io/badge/License-MIT-green)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-try_it_online-00d4ff?style=flat-square&logo=googlechrome&logoColor=white)](https://developeramiri.github.io/FocusFlow/)
 ![Dependencies](https://img.shields.io/badge/dependencies-0-success)
+[![CI](https://github.com/DeveloperAmiri/FocusFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/DeveloperAmiri/FocusFlow/actions/workflows/ci.yml)
+
+
+**🚀 [Try it live](https://developeramiri.github.io/FocusFlow/)** — no install needed, runs 100% in your browser.
 
 </div>
 
